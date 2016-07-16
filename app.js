@@ -141,8 +141,8 @@ console.info('-----------------------------------------------------------');
 
 
 
-var port = 8080; // Arbitrary. choose any valid port you like
-
+var port = 443; // Arbitrary. choose any valid port you like
+var host = 'nativeapp.herokuapp.com';
 // Add your host, port configuration to the
 // configuration object: adhs_config
 //
