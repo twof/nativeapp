@@ -1,343 +1,247 @@
-/*jslint browser: true, devel: true, node: true, debug: true, todo: true, indent: 2, maxlen: 150, unparam: true*/
-/*global require, module, mode*/
-
-(function () {
-  'use strict';
-
-  /**
-   *---------------------------------------------------------
-   * app.js
-   *---------------------------------------------------------
-   *
-   * Sample Web Application implemented in NodeJS.
-   *
-   * Illustrates what a Developer typically needs to do to
-   * use AT&T WebRTC JS SDK to add Telephony and add real-time
-   * Call and Conference Management functions into a Web
-   * Application.
-   *
-   *----------------
-   * Pre-requisites:
-   *----------------
-   * Before starting work on your Web Application, it is assumed
-   * that, you previously:
-   *
-   * a) Created an app on AT&T Developer Portal with:
-   *
-   * WEBRTCMOBILE scope ( 'AT&T Mobile Number' feature)
-   * and/or
-   * WEBRTC scope ( 'Virtual Number' and 'Account ID' features)
-   *
-   * b) Configured the resulting App Key, App Secret, Virtual
-   * numbers etc. in the package.json
-   *
-   *
-   *-----------------------------
-   * This Sample App illustrates:
-   *-----------------------------
-   *
-   *---------------------------------------------
-   * 1) Setting up /oauth routes in your web-tier
-   *---------------------------------------------
-   * to handle User Consent if your application's
-   * end user is an AT&T Mobility Subscriber. (aka 'AT&T
-   * Mobile Number') feature
-   *
-   * NOTE:
-   *------
-   * This set up is needed ONLY IF you plan to use 'AT&T
-   * Mobile Number' feature in your Web Application. You
-   * can skip it if you plan to use only 'Virtual Number' and
-   * 'Account ID' features.
-   *
-   * Following 2 routes are set up:
-   * a) /oauth/authorize
-   * b) /oauth/callback
-   * c) /oauth/token
-   * d) /e911id
-   *
-   * You can use the file ./routes/att.js as-is out-of-the-box.
-   *
-   *---------------------------------------------------------
-   * @author Raj Sesetti, AT&T Developer Program, DRT/LTA
-   *---------------------------------------------------------
-   */
+/**
+ *---------------------------------------------------------
+ * app.js
+ *---------------------------------------------------------
+ * Sample Express App to illustrate what a Developer needs
+ * to do on the server-side.
+ *
+ * Server set-up is needed to facilitate HTML5/JS Web Apps
+ * invoking AT&T APIs.
+ *
+ * This app also serves at HTTPS Web Server and hosts the
+ * HTML5/JS/CSS3 for the sample web app demonstrating 
+ * 'Account Id' feature of 'Enhanced WebRTC API' from
+ * AT&T Developer Program (https://developer.att.com)
+ *
+ * Similar server-side examples are available for Java, PHP, 
+ * Ruby. To know more, check out:
+ *	https://github.com/attdevsupport/WebRTC-SampleApp
+ *
+ *----------------
+ * Pre-requisites:
+ *----------------
+ * Before starting work on this sample, you previously:
+ *
+ * a) Created an app on AT&T Developer Portal with:
+ *	WEBRTC scope ('Account ID' feature)
+ *
+ * b) Have the App Key, App Secret, eWebRTC Domain available
+ * to configure here
+ *
+ *---------------------------------------------------------
+ * This Sample server set-up shows the code needed to set 
+ * up 2 routes by default.
+ *---------------------------------------------------------
+ *
+ * 1. GET /config
+ * Used by Web App client to retrieve configuration
+ * from this server
+ *
+ * This configuration has info on important URLs
+ * (Endpoint URLs to create to Access Token etc.)
+ *
+ * 2. POST /tokens
+ * Used by Web App client JavaScript code to create 
+ * Access Token 
+ *
+ * NOTE: If you want to set up custom routes, you can do it
+ * by passing options to app.use('router', ...) method. For
+ * more info, refere to documentation of att-dhs NPM module
+ * at https://npmjs.org/att-dhs
+ *---------------------------------------------------------
+ * @author AT&T Developer Program, DRT/LTA
+ *---------------------------------------------------------
+ */
 
 // ---------------------------------------------
-// Boiler-plate Express App 'require' statements
-// ---------------------------------------------
-//
-  var express = require('express'),
-    fs = require('fs'),
-    http = require('http'),
-    https = require('https'),
-    favicon = require('static-favicon'),
-    bodyParser = require('body-parser'),
-// ---------------------------------------------
-// END: Boiler-plate 'require' statements
+// SECTION: Boiler-plate Express App 'require's
 // ---------------------------------------------
 
-    app,
-    dhs,
-    httpsServer,
-    httpServer,
-    pkg,
-    http_port,
-    https_port,
-    cert_file,
-    key_file,
-    privateKey,
-    certificate,
-    api_env,
-    app_key,
-    app_secret,
-    oauth_callback,
-    virtual_numbers_pool,
-    ewebrtc_domain,
-    env_config,
-    is_heroku_env;
+var express = require('express');
+var	fs = require('fs');
+var	https = require('https');
+var	favicon = require('static-favicon');
+var	bodyParser = require('body-parser');
 
 //--------------------------------------------------------
-// SECTION: Initialize configuration
-//--------------------------------------------------------
-// Following are calculated after required configuration
-// entries are read or defaulted.
+// SECTION: Configure Developer App credentials from AT&T
+// Developer Portal.
 //
-//--------------------------------------------------------
-  pkg = require('./package.json');
-
-
-  is_heroku_env = process.env.NODE_HOME && process.env.NODE_HOME.indexOf('heroku') !== -1;
-
-  if (is_heroku_env) {
-
-    http_port = process.env.PORT;
-    console.info('Using HTTP PORT ', http_port);
-
-  } else {
-
-    http_port = process.env.HTTP_PORT || pkg.http_port;
-    console.info('Using HTTP PORT ', http_port);
-
-    https_port = process.env.HTTPS_PORT || pkg.https_port;
-    console.info('Using HTTPS PORT ', https_port);
-
-  }
-
-  //TODO why do we need SSL certificate
-  cert_file = process.env.CERT_FILE || pkg.cert_file;
-  key_file = process.env.KEY_FILE || pkg.key_file;
-  console.info('Using SSL Configuration - Certificate: ', cert_file, 'Key File: ', key_file);
-
-  //TODO what is argv[2] how is it supplied to node
-  api_env = process.argv[2] || process.env.API_ENV || pkg.default_api_env;
-  console.info('Using API Env : ', api_env);
-
-  env_config = pkg[api_env];
-  env_config.api_env = api_env;
-  env_config.host = '127.0.0.1';
-  env_config.port = https_port;
-
-  app_key = env_config.app_key;
-  app_secret = env_config.app_secret;
-  oauth_callback = env_config.oauth_callback;
-  virtual_numbers_pool = env_config.virtual_numbers_pool;
-  ewebrtc_domain = env_config.ewebrtc_domain;
-
-  if (!app_key || !app_secret) {
-    console.error('Insufficient App Configuration');
-    console.error('Entries app_key, app_secret are mandatory');
-    console.error('Exiting...');
-    process.exit(1);
-  }
-
-  if ('YourAppKey' === app_key || 'YourAppSecret' === app_secret) {
-    console.error('Invalid app_key or app_secret');
-    console.error('Entries app_key or app_secret are not set');
-    console.error('Exiting...');
-    process.exit(1);
-  }
-
-  console.info('#####################################################');
-  console.info('        Using App Key: ', app_key);
-  console.info('     Using App Secret: ', app_secret);
-  console.info('#####################################################');
-
-  if (oauth_callback) {
-    console.info('OAuth Callback URL: ', oauth_callback);
-  } else {
-    console.info('OAuth callback is NOT configured. You can not use mobile numbers');
-  }
-  console.info('#####################################################');
-
-  if (virtual_numbers_pool) {
-    console.info('Using Virtual Number Pool:');
-    console.info(virtual_numbers_pool);
-  } else {
-    console.info('Virtual numbers pool is NOT configured. You can not user virtual numbers');
-  }
-  console.info('#####################################################');
-
-  if (ewebrtc_domain) {
-    console.info('EWebRTC domain:');
-    console.info(ewebrtc_domain);
-  } else {
-    console.info('EWebRTC domain is NOT configured.');
-  }
-  console.info('#####################################################');
-
-//--------------------------------------------------------
-// END SECTION: Initialize configuration
+// App Key, App Secret etc. are needed to use AT&T APIs.
 //--------------------------------------------------------
 
+var adhs_config = {};
 
-//--------------------------------------------------------
-// SECTION: start of action
-//--------------------------------------------------------
-// Configuration is all ready. We are good to go.
+// -- DEVELOPER TODO --
 //
-//--------------------------------------------------------
-
-// Handle this process just in case...
-// so that the Log strems are not corrupted
+// Update the following 3 lines with your own 
+// App Key, App Secret and eWebRTC Domain values
 //
-  process.on('SIGUSR2', function () {
-    console.info('Pending Work items can be killed or stopped');
-    console.info('Signal SIGUSR2 received. Reopening log streams...');
-  });
+// If you are using out-of-the-box configuration,
+// you don't have to write any other code to run
+// run this node express app.
+//
+
+// Required for any AT&T API
+//
+adhs_config.app_key = '<your_app_key>';
+adhs_config.app_secret = '<your_app_secret>';
+
+// Required for AT&T eWebRTC API
+//
+adhs_config.ewebrtc_domain = '<your_ewebrtc_domain>';
+
+// NO need to change anything below unless you are 
+// moving your app to production. If so, use 'prod'
+// in place of 'sandbox'. Sandbox key/secret cannot be
+// used for Production. Check developer.att.com
+// for more info on Production usage.
+//
+
+adhs_config.api_env = 'sandbox';
+
+// Checking to see if you really did configure :) 
+// your app key, app secret etc.
+//
+if( '<your_app_key>' === adhs_config.app_key ||
+	 	'<your_app_secret>' === adhs_config.app_secret || 
+		'<your_ewebrtc_domain>' === adhs_config.ewebrtc_domain 
+		) { 
+	console.error('Did you forget configuring app_key, app_secret, ewebrtc_domain?');
+	console.error('Exiting...');
+	process.exit(1);
+}
+
+console.info('-----------------------------------------------------------');
+console.info('...Attempting to use configuration...');
+console.info('-----------------------------------------------------------');
+console.info('       App Key: ', adhs_config.app_key);
+console.info('    App Secret: ', adhs_config.app_secret);
+console.info('eWebRTC Domain: ', adhs_config.ewebrtc_domain);
+console.info('-----------------------------------------------------------');
+
+//--------------------------------------------------------
+// SECTION: Initialize HTTPS Server configuration.
+// We will use these variables towards the end of this
+// file, when we start the HTTPS server.
+//--------------------------------------------------------
+// Just to quick start our sample, we have a self-generated
+// SSL certificate and private key.
+//
+// WARNING:
+// NEVER use self-generated SSL stuff anywhere else. If you 
+// do have your own SSL private key and certificate, try
+// using those.
+//
+// NOTE:
+// When you visit web page served by this Node App in Chrome,
+// it will show you a warning about this certificate. Accept
+// the warning to see the actual web page.
+//
+
+
+
+var port = 8080; // Arbitrary. choose any valid port you like
+
+// Add your host, port configuration to the
+// configuration object: adhs_config
+//
+
+adhs_config.host = host;
+adhs_config.port = port;
 
 // ---------------------------------------------
 // BEGIN: Boiler-plate Express app set-up
 // ---------------------------------------------
 //
-  /*jslint stupid: true*/
-  privateKey = fs.readFileSync('sample.key', 'utf8');
-  certificate = fs.readFileSync('sample.cert', 'utf8');
-  /*jslint stupid: false*/
 
-  app = express();
+var app = express();
 
-//View Engine setup (Hogan.js)
-
-  /*jslint nomen: true*/
-  //app.set('views', __dirname + '/views');
-  app.set('view engine', 'hjs');
-  /*jslint nomen: false*/
-
-// Middleware
-
-  /*jslint nomen: true*/
-  app.use(favicon());
-  app.use(bodyParser.json());
-  app.use(bodyParser.urlencoded({extended: false}));
-
-  //Checks all routs in the pubic folder
-  app.use('/', express.static(__dirname + '/public'));
-  /*jslint nomen: false*/
-
-// ---------------------------------------------
-// END: Boiler-plate Express app set-up
-// ---------------------------------------------
+app.use(favicon());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({extended: false}));
+app.use('/', express.static(__dirname + '/public'));
 
 // ---------------------------------------------
 // BEGIN: CUSTOM CODE for WebRTC functionality
-// ---------------------------------------------
-// This is the meat of code to enable AT&T WebRTC
 //
+// Following 3 lines set up default att-dhs routes
+// in the express app.
 // ---------------------------------------------
-// CUSTOM CODE to enable 'AT&T Mobile Number'
-// ---------------------------------------------
-// OAuth Routes need for AT&T Authorization if
-// you are planning for AT&T Mobility Subscribers
-// to use your App. This is also known as
-// 'AT&T Mobile Number' feature of AT&T Enhanced WebRTC API
+
+var adhs = require('att-dhs'); // Note the hyphen in require
+adhs.configure(adhs_config);
+adhs.use('router', {server: app}); // 2nd arg will change to {app: app} in next release
+
+// Additional configuration options are available
+// but not used in this app.
 //
-// You don't need to include the following 5 lines
-// if you don't use that feature
+
+// If this option is not specified, logs will go 
+// to console by default. If you want to use your own
+// custom logger object, it should provide special 
+// log methods as documented at https://npmjs.org/att-dhs
 //
-  dhs = require('att-dhs');
-// Configure the server with environment configuration
-// before it can be used
-
-  dhs.configure(env_config);
-
-  dhs.use('router', {
-    server: app
-  });
-
-// ---------------------------------------------
-// END: CUSTOM CODE for 'AT&T Mobile Number'
-// ---------------------------------------------
+//
+// adhs.use('logger', {logger: yourCustomLoggerObject});
 
 // ---------------------------------------------
 // BEGIN: Boiler-plate Express app route set-up
 // ---------------------------------------------
-// Business as usual from below
 //
 // catch 404 and forward to error handler
 //
-  app.use(function (req, res, next) {
-    var err = new Error('Not Found');
-    err.status = 404;
-    next(err);
-  });
+app.use(function (req, res, next) {
+	var err = new Error('Not Found');
+	err.status = 404;
+	next(err);
+});
 
 // DEV error handler
 // No stacktraces shown to end user.
 //
-  if (app.get('env') === 'development') {
-    app.use(function (err, req, res, next) {
-      res.status(err.status || 500);
-      res.render('error', {
-        message: err.message,
-        error: err
-      });
-    });
-  }
+if (app.get('env') === 'development') {
+	app.use(function (err, req, res, next) {
+		res.status(err.status || 500);
+		res.render('error', {
+			message: err.message,
+			error: err
+		});
+	});
+}
 
 // PROD error handler
 // No stacktraces shown to end user.
 //
-  app.use(function (err, req, res, next) {
-    res.status(err.status || 500);
-    res.render('error', {
-      message: err.message,
-      error: {}
-    });
-  });
-
-//
-// Create web servers - HTTP and HTTPS
-//
-  httpServer = http.createServer(app).listen(http_port, env_config.host, function () {
-    var self;
-
-    console.log('HTTP web server listening on port ' + http_port);
-
-    self = this;
-    dhs.use('websocket.eventchannel', {
-      server: self
-    });
-  });
-
-
-  if (!is_heroku_env) {
-    httpsServer = https.createServer({
-      key: privateKey,
-      cert: certificate
-    }, app).listen(https_port, function () {
-
-      console.log('HTTPS web server listening on port ' + https_port);
-    });
-  }
-
+app.use(function (err, req, res, next) {
+	res.status(err.status || 500);
+	res.render('error', {
+		message: err.message,
+		error: {}
+	});
+});
 
 // ---------------------------------------------
-// END: Boiler-plate Express app route set-up
+// BEGIN: Start HTTPS server ONLY
 // ---------------------------------------------
+// HTTPS is REQUIRED for WebRTC.
+//
+var server = http.createServer( app );
+server.listen( port, function() {
+
+	console.log('HTTP server listening on host: ', server.address().address, ' at port ' , server.address().port);
+	
+	// NOTE 1:
+	// Use the following option if you also have Android or
+	// iOS clients in addition to Web App clients
+	//
+	// NOTE 2:
+	// Not fully tested yet.
+	// 
+	// adhs.use('websocket.eventchannel', {server: server});
+});
 
 //-----------------------------------------------------------
 // END: app.js
 //-----------------------------------------------------------
 
-}());
