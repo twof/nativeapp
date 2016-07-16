@@ -25,8 +25,8 @@
 	"engines": {
 		"node": "0.11.*"
 	},
-	"http_port": 9000,
-	"https_port": 9001,
+	"http_port": 80,
+	"https_port": 8080,
 	"cert_file": "sample.cert",
 	"key_file": "sample.key",
 	"logs_dir": "logs",
@@ -38,17 +38,13 @@
 		"ewebrtc_domain": "attwebrtc.com"
 	},
 	"prod": {
-		"app_key": "<your-app-key>",
-		"app_secret": "<your-app-secret>",
-		"oauth_callback": "https://127.0.0.1:9001/oauth/callback",
-		"app_token_url": "https://127.0.0.1:9001/tokens",
-		"app_e911id_url": "https://127.0.0.1:9001/e911ids",
-		"virtual_numbers_pool": [
-			"number1",
-			"number2",
-			"number3"
-		],
-		"ewebrtc_domain": "<your-ewebrtc-domain>"
+		"app_key": "n9dwcsrnmkds3yrnd7o5n3eeuhhautmb",
+		"app_secret": "9ovc7ohnkemzlpdmjw1z4n3rjkn6pd41",
+		"oauth_callback": "https://127.0.0.1:8080/oauth/callback",
+		"app_token_url": "https://127.0.0.1:8080/tokens",
+		"app_e911id_url": "https://127.0.0.1:8080/e911ids",
+		"virtual_numbers_pool": [],
+		"ewebrtc_domain": "attwebrtc.com"
 	},
 	"dependencies": {
 		"att-dhs": "stable",
