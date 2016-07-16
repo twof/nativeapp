@@ -84,12 +84,12 @@ var adhs_config = {};
 
 // Required for any AT&T API
 //
-adhs_config.app_key = '<your_app_key>';
-adhs_config.app_secret = '<your_app_secret>';
+adhs_config.app_key = 'n9dwcsrnmkds3yrnd7o5n3eeuhhautmb';
+adhs_config.app_secret = '9ovc7ohnkemzlpdmjw1z4n3rjkn6pd41';
 
 // Required for AT&T eWebRTC API
 //
-adhs_config.ewebrtc_domain = '<your_ewebrtc_domain>';
+adhs_config.ewebrtc_domain = 'attwebrtc.com';
 
 // NO need to change anything below unless you are 
 // moving your app to production. If so, use 'prod'
@@ -103,9 +103,9 @@ adhs_config.api_env = 'sandbox';
 // Checking to see if you really did configure :) 
 // your app key, app secret etc.
 //
-if( '<your_app_key>' === adhs_config.app_key ||
-	 	'<your_app_secret>' === adhs_config.app_secret || 
-		'<your_ewebrtc_domain>' === adhs_config.ewebrtc_domain 
+if( 'n9dwcsrnmkds3yrnd7o5n3eeuhhautmb' === adhs_config.app_key ||
+	 	'9ovc7ohnkemzlpdmjw1z4n3rjkn6pd41' === adhs_config.app_secret || 
+		'attwebrtc.com' === adhs_config.ewebrtc_domain 
 		) { 
 	console.error('Did you forget configuring app_key, app_secret, ewebrtc_domain?');
 	console.error('Exiting...');
